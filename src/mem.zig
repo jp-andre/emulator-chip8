@@ -167,7 +167,6 @@ pub fn instr_u16(ri: RawInstruction) u16 {
     return @as(u16, ri[0]) << 8 | @as(u16, ri[1]);
 }
 
-pub const MemoryOffsets = enum(u16) {
-    RawMemoryStart = 0x200,
-    RawMemoryStartETI660 = 0x600,
-};
+pub const MEMORY_START = 0x200;
+// MEMORY_START_ETI660 = 0x600,
+pub const BUILTIN_FONT_START = 0x100;
