@@ -17,8 +17,23 @@ pub const ProgramState = struct {
             .display = display.DisplayState.init(),
         };
     }
+
+    pub fn current_instruction_u8(self: *const ProgramState) !mem.RawInstruction {
+        const pc = self.registers.PC;
+        if (pc + 1 > self.memory.len) return error.JUMP_OUT_OF_BOUNDS;
+        const ri = [2]u8{ self.memory[pc], self.memory[pc + 1] };
+        return ri;
+    }
+
+    pub fn current_instruction(self: *const ProgramState) !mem.Instruction {
+        const ri = try self.current_instruction_u8();
+        return mem.Instruction.from_u8(ri);
+    }
 };
 
 test "can create program state" {
-    _ = ProgramState.init();
+    const st = ProgramState.init();
+
+    const curi = try st.current_instruction();
+    try testing.expectEqual(0x0, curi.to_u16());
 }
