@@ -1,6 +1,6 @@
 const std = @import("std");
 const testing = std.testing;
-const mem = @import("./mem.zig");
+const mem = @import("mem.zig");
 
 test "parse opcode SYS" {
     const instr = try mem.Instruction.from_split4([4]u4{ 0, 1, 2, 3 });
