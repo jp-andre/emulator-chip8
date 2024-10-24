@@ -31,3 +31,5 @@ test "parse opcode RET" {
     try testing.expectEqual(null, instr.byte);
     try testing.expectEqual(null, instr.addr);
 }
+
+// todo: all others lol

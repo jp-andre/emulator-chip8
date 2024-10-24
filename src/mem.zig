@@ -1,18 +1,18 @@
 const std = @import("std");
 
-const GeneralErrors = error{
+pub const GeneralErrors = error{
     NOT_IMPLEMENTED,
     INVALID_INSTRUCTION,
 };
 
-const RegisterErrors = error{
+pub const RegisterErrors = error{
     // http://devernay.free.fr/hacks/chip8/C8TECH10.HTM#3.0
     VF_WRITE_FORBIDDEN,
 };
 
-const Registers = struct {
-    Vx: [16]u8 = [_]u8{0} ** 16,
-    I: u16 = 0,
+pub const Registers = struct {
+    Vx: [16]u8,
+    I: u16,
     DT: u8, // delay timer
     ST: u8, // sound timer
     PC: u16, // program counter
@@ -24,6 +24,17 @@ const Registers = struct {
         }
 
         self.Vx[x] = value;
+    }
+
+    pub fn init() Registers {
+        return Registers{
+            .Vx = [_]u8{0} ** 16,
+            .I = 0,
+            .DT = 0,
+            .ST = 0,
+            .PC = 0,
+            .SP = 0,
+        };
     }
 };
 
@@ -143,9 +154,11 @@ pub const Instruction = struct {
     // pub fn dumps(self: Instruction) []const u8 { // }
 };
 
-const StackBuffer = [16]u16;
-const RawMemoryBuffer = [4096]u8;
-const RawInstruction = [2]u8;
+pub const StackBuffer = [16]u16;
+pub const RawMemoryBuffer = [4096]u8;
+pub const RawInstruction = [2]u8;
 
-const RawMemoryStart = 0x200;
-const RawMemoryStartETI660 = 0x600;
+pub const MemoryOffsets = enum(u16) {
+    RawMemoryStart = 0x200,
+    RawMemoryStartETI660 = 0x600,
+};
