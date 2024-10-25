@@ -3,6 +3,11 @@ const testing = std.testing;
 const mem = @import("mem.zig");
 const program = @import("program.zig");
 const errors = @import("errors.zig");
+const instructions = @import("instructions.zig");
+
+const OpCode = instructions.OpCode;
+const Instruction = instructions.Instruction;
+const ProgramState = program.ProgramState;
 
 pub const WIDTH = 64;
 pub const HEIGHT = 32;
@@ -65,21 +70,22 @@ pub const DisplayState = struct {
         return ret;
     }
 
-    pub fn execute_draw(self: *DisplayState, ps: *program.ProgramState, instr: mem.Instruction) !void {
-        if (instr.op != mem.OpCode.DRW) return error.ASSERTION_ERROR;
+    pub fn execute_draw(self: *DisplayState, ps: *ProgramState, instr: Instruction) !void {
+        if (instr.op != OpCode.DRW) return error.ASSERTION_ERROR;
 
-        const x = ps.registers.Vx[instr.r0];
-        const y = ps.registers.Vx[instr.r1];
-        const n = instr.nibble;
+        const x = ps.registers.Vx[instr.r0.?];
+        const y = ps.registers.Vx[instr.r1.?];
+        const n = instr.nibble.?;
         const sprite = ps.memory[ps.registers.I .. ps.registers.I + n];
 
-        return self.draw_sprite(sprite, x, y);
+        const flipped = self.draw_sprite(sprite, x, y);
+        ps.registers.Vx[0xF] = if (flipped) 1 else 0;
     }
 
-    pub fn execute_clear(self: *DisplayState, ps: *program.ProgramState, instr: mem.Instruction) !void {
+    pub fn execute_clear(self: *DisplayState, ps: *ProgramState, instr: Instruction) !void {
         _ = ps;
 
-        if (instr.op != mem.OpCode.CLS) return error.ASSERTION_ERROR;
+        if (instr.op != OpCode.CLS) return error.ASSERTION_ERROR;
         @memset(&self.bits, 0);
     }
 
@@ -141,7 +147,7 @@ test "can create display state" {
 test "can draw basic sprite" {
     var strbuf = [_]u8{0} ** (DUMP_BUFSIZE);
 
-    var ps = program.ProgramState.init();
+    var ps = ProgramState.init();
     var flipped = false;
 
     for (0..16) |c| {
@@ -161,15 +167,16 @@ test "can draw basic sprite" {
 
 test "can execute CLS" {
     var strbuf = [_]u8{0} ** (DUMP_BUFSIZE);
-    var ps = program.ProgramState.init();
+    var ps = ProgramState.init();
 
     // draw something
     const sprite = BuiltinSprites[0];
     _ = ps.display.draw_sprite(&sprite, 0, 0);
     try ps.display.dumps(&strbuf, true);
 
-    const instr = try mem.Instruction.from_u16(0x00E0);
-    try ps.display.execute_clear(&ps, instr);
+    const instr = try Instruction.from_u16(0x00E0);
+    // try ps.display.execute_clear(&ps, instr);
+    try ps.execute_instruction(instr);
 
     const expected = @embedFile("test/assets/test_display_empty.txt");
     try ps.display.dumps(&strbuf, true);
