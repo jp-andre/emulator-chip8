@@ -12,4 +12,5 @@ pub const RuntimeErrors = error{
     ASSERTION_ERROR, // for things that can't happen
     INSUFFICIENT_BUFFER,
     // INTERNAL_ERROR,
+    MISSING_ARGUMENT,
 };

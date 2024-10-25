@@ -11,7 +11,7 @@ const ProgramState = program.ProgramState;
 
 pub const WIDTH = 64;
 pub const HEIGHT = 32;
-const DUMP_BUFSIZE = (WIDTH + 3) * (HEIGHT + 2);
+pub const DUMP_BUFSIZE = (WIDTH + 3) * (HEIGHT + 2);
 
 pub const BuiltinSprites = [_][5]u8{
     [5]u8{ 0xF0, 0x90, 0x90, 0x90, 0xF0 },

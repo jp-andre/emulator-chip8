@@ -28,11 +28,21 @@ pub const ProgramState = struct {
             .stack = [_]u16{0} ** 16,
             .memory = [_]u8{0} ** 4096,
             .display = display.DisplayState.init(),
-            .randomizer = std.Random.DefaultPrng.init(0),
+            .randomizer = std.Random.DefaultPrng.init(@intCast(std.time.milliTimestamp())),
             .input = input.InputState.init(),
         };
         prg.load_builtin_fonts();
         return prg;
+    }
+
+    pub fn load_memory(self: *ProgramState, binary_data: []const u8) !void {
+        if (binary_data.len > mem.MEMORY_END - mem.MEMORY_START) return error.INSUFFICIENT_BUFFER;
+        @memcpy(self.memory[mem.MEMORY_START .. mem.MEMORY_START + binary_data.len], binary_data);
+    }
+
+    pub fn close(self: *ProgramState) void {
+        std.log.info("Bye.", .{});
+        _ = self;
     }
 
     fn load_builtin_fonts(self: *ProgramState) void {
@@ -45,8 +55,9 @@ pub const ProgramState = struct {
 
     pub fn current_instruction_u8(self: *const ProgramState) !RawInstruction {
         const pc = self.registers.PC;
-        if (pc + 1 > self.memory.len) return error.JUMP_OUT_OF_BOUNDS;
-        const ri = [2]u8{ self.memory[pc], self.memory[pc + 1] };
+        const offset = pc * 2 + mem.MEMORY_START;
+        if (offset + 1 > self.memory.len) return error.JUMP_OUT_OF_BOUNDS;
+        const ri = [2]u8{ self.memory[offset], self.memory[offset + 1] };
         return ri;
     }
 
@@ -56,6 +67,7 @@ pub const ProgramState = struct {
     }
 
     pub fn execute_instruction(self: *ProgramState, instr: Instruction) !void {
+        std.debug.print("0x{X} 0x{X} -> {any}\n", .{ instr.raw[0], instr.raw[1], instr });
         try switch (instr.op) {
             OpCode.SYS => {},
             OpCode.CLS => self.display.execute_clear(self, instr),
@@ -97,7 +109,8 @@ pub const ProgramState = struct {
     }
 
     fn check_pc(self: *const ProgramState) !void {
-        if (self.registers.PC < mem.MEMORY_START or self.registers.PC >= self.memory.len) {
+        const offset = self.registers.PC * 2 + mem.MEMORY_START;
+        if (offset < mem.MEMORY_START or offset >= self.memory.len) {
             return error.JUMP_OUT_OF_BOUNDS;
         }
     }
@@ -249,6 +262,31 @@ pub const ProgramState = struct {
             self.registers.Vx[r] = self.memory[self.registers.I + r];
         }
         self.registers.PC += 1;
+    }
+
+    // main loop
+    pub fn run(self: *ProgramState) !void {
+        var display_buffer = [_]u8{0} ** (display.DUMP_BUFSIZE);
+
+        std.log.info("Starting program", .{});
+        std.debug.print("{any}\n", .{self.registers});
+
+        var tick: usize = 0;
+        while (true) {
+            const instr = try self.current_instruction();
+            try self.execute_instruction(instr);
+
+            try self.display.dumps(&display_buffer, true);
+            _ = try std.fmt.bufPrint(&display_buffer, "* TICK: {d} ", .{tick});
+            // std.debug.print("TICK: {d}\n", args: anytype)
+            std.debug.print("{any}\n", .{self.registers});
+            std.debug.print("{s}\n", .{display_buffer});
+
+            // break now :)
+            if (tick >= 3) break;
+
+            tick += 1;
+        }
     }
 };
 

@@ -19,7 +19,7 @@ pub const Registers = struct {
             .I = 0,
             .DT = 0,
             .ST = 0,
-            .PC = MEMORY_START,
+            .PC = 0, // corresponds to MEMORY_START
             .SP = 0,
         };
     }
