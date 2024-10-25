@@ -1,7 +1,7 @@
 const std = @import("std");
 const testing = std.testing;
 const mem = @import("mem.zig");
-const state = @import("state.zig");
+const program = @import("program.zig");
 const errors = @import("errors.zig");
 
 pub const WIDTH = 64;
@@ -47,12 +47,43 @@ pub const DisplayState = struct {
         return ret == 0x1;
     }
 
-    // pub fn set1(self: *DisplayState, x: usize, y: usize, v: u1) void {
-    //     const offset: usize = y * WIDTH + x;
-    //     self.bits[offset] = v;
-    // }
+    // Returns true if any pixel was erased
+    pub fn draw_sprite(self: *DisplayState, sprite: []const u8, x: u8, y: u8) bool {
+        var ret = false;
 
-    pub fn dumps(self: *const DisplayState, out: []u8, border: bool) ![]u8 {
+        for (0..sprite.len) |yy| {
+            const row: u8 = sprite[yy];
+            for (0..8) |x_iter| {
+                const xx: u3 = @intCast(x_iter);
+                const draw_x = (x + xx) % WIDTH;
+                const draw_y = (y + yy) % HEIGHT;
+                const value: u1 = @intCast(row >> (7 - xx) & 0x1);
+                ret = self.xor1(draw_x, draw_y, value) or ret;
+            }
+        }
+
+        return ret;
+    }
+
+    pub fn execute_draw(self: *DisplayState, ps: *program.ProgramState, instr: mem.Instruction) !void {
+        if (instr.op != mem.OpCode.DRW) return error.ASSERTION_ERROR;
+
+        const x = ps.registers.Vx[instr.r0];
+        const y = ps.registers.Vx[instr.r1];
+        const n = instr.nibble;
+        const sprite = ps.memory[ps.registers.I .. ps.registers.I + n];
+
+        return self.draw_sprite(sprite, x, y);
+    }
+
+    pub fn execute_clear(self: *DisplayState, ps: *program.ProgramState, instr: mem.Instruction) !void {
+        _ = ps;
+
+        if (instr.op != mem.OpCode.CLS) return error.ASSERTION_ERROR;
+        @memset(&self.bits, 0);
+    }
+
+    pub fn dumps(self: *const DisplayState, out: []u8, border: bool) !void {
         if (out.len < DUMP_BUFSIZE) return error.INSUFFICIENT_BUFFER;
         @memset(out, 0);
 
@@ -100,32 +131,8 @@ pub const DisplayState = struct {
             out[k] = '\n';
             k += 1;
         }
-
-        return out;
     }
 };
-
-// Returns true if any pixel was erased
-pub fn draw_sprite(display: *DisplayState, sprite: []const u8, x: u8, y: u8) bool {
-    var ret = false;
-
-    for (0..sprite.len) |yy| {
-        const row: u8 = sprite[yy];
-        for (0..8) |x_iter| {
-            const xx: u3 = @intCast(x_iter);
-            const draw_x = (x + xx) % WIDTH;
-            const draw_y = (y + yy) % HEIGHT;
-            const value: u1 = @intCast(row >> (7 - xx) & 0x1);
-            ret = display.xor1(draw_x, draw_y, value) or ret;
-        }
-    }
-
-    return ret;
-}
-
-// pub fn draw_execute(st: *state.ProgramState) !u8 {
-//     const
-// }
 
 test "can create display state" {
     _ = DisplayState.init();
@@ -134,19 +141,38 @@ test "can create display state" {
 test "can draw basic sprite" {
     var strbuf = [_]u8{0} ** (DUMP_BUFSIZE);
 
-    var st = state.ProgramState.init();
+    var ps = program.ProgramState.init();
     var flipped = false;
 
     for (0..16) |c| {
         const sprite = BuiltinSprites[c];
         const x: u8 = @intCast((c % 8) * 6);
         const y: u8 = @intCast((c / 8) * 6);
-        flipped = draw_sprite(&st.display, &sprite, x, y);
+        flipped = ps.display.draw_sprite(&sprite, x, y);
     }
 
     try testing.expectEqual(false, flipped);
 
-    const expected = @embedFile("test_display_builtins.txt");
-    // std.debug.print("DISPLAY:\n{!s}\n", .{st.display.dumps(&strbuf, true)});
-    try testing.expectEqualStrings(expected, try st.display.dumps(&strbuf, true));
+    const expected = @embedFile("test/assets/test_display_builtins.txt");
+    try ps.display.dumps(&strbuf, true);
+    // std.debug.print("DISPLAY:\n{!s}\n", .{strbuf});
+    try testing.expectEqualStrings(expected, &strbuf);
+}
+
+test "can execute CLS" {
+    var strbuf = [_]u8{0} ** (DUMP_BUFSIZE);
+    var ps = program.ProgramState.init();
+
+    // draw something
+    const sprite = BuiltinSprites[0];
+    _ = ps.display.draw_sprite(&sprite, 0, 0);
+    try ps.display.dumps(&strbuf, true);
+
+    const instr = try mem.Instruction.from_u16(0x00E0);
+    try ps.display.execute_clear(&ps, instr);
+
+    const expected = @embedFile("test/assets/test_display_empty.txt");
+    try ps.display.dumps(&strbuf, true);
+    // std.debug.print("DISPLAY:\n{!s}\n", .{strbuf});
+    try testing.expectEqualStrings(expected, &strbuf);
 }

@@ -2,6 +2,7 @@ const std = @import("std");
 const testing = std.testing;
 const mem = @import("mem.zig");
 const display = @import("display.zig");
+const errors = @import("errors.zig");
 
 pub const ProgramState = struct {
     registers: mem.Registers,
@@ -10,25 +11,22 @@ pub const ProgramState = struct {
     display: display.DisplayState,
 
     pub fn init() ProgramState {
-        var state = ProgramState{
+        var prg = ProgramState{
             .registers = mem.Registers.init(),
             .stack = [_]u16{0} ** 16,
             .memory = [_]u8{0} ** 4096,
             .display = display.DisplayState.init(),
         };
-        state.load_builtin_fonts();
-        return state;
+        prg.load_builtin_fonts();
+        return prg;
     }
 
     fn load_builtin_fonts(self: *ProgramState) void {
-        const start = mem.BUILTIN_FONT_START;
+        const offset = mem.BUILTIN_FONT_START;
         for (0..display.BuiltinSprites.len) |k| {
-            @memcpy(self.memory[start + k * 5 .. start + (k + 1) * 5], &display.BuiltinSprites[k]);
+            // FIXME why do I need to iterate here... this is all a single buffer, isn't it?
+            @memcpy(self.memory[offset + k * 5 .. offset + (k + 1) * 5], &display.BuiltinSprites[k]);
         }
-        // @memcpy(
-        //     self.memory[start .. start + display.BUILTIN_SPRITES_LEN],
-        //     &display.BuiltinSprites,
-        // );
     }
 
     pub fn current_instruction_u8(self: *const ProgramState) !mem.RawInstruction {
@@ -41,6 +39,14 @@ pub const ProgramState = struct {
     pub fn current_instruction(self: *const ProgramState) !mem.Instruction {
         const ri = try self.current_instruction_u8();
         return mem.Instruction.from_u8(ri);
+    }
+
+    pub fn execute_instruction(self: *ProgramState, instr: mem.Instruction) !void {
+        switch (instr.op) {
+            mem.OpCode.DRW => return self.display.execute_draw_instruction(instr, self.memory, self.registers),
+
+            else => return error.NOT_IMPLEMENTED,
+        }
     }
 };
 

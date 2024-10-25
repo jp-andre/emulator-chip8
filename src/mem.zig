@@ -118,7 +118,7 @@ pub const Instruction = struct {
             0xF => error.NOT_IMPLEMENTED,
         };
 
-        // std.debug.print("raw: {x} -> parsed: {any}\n", .{ raw, parsed });
+        // std.debug.print("raw: {x} -> parsed: {any}\n", .{ ri, parsed });
         return parsed;
     }
 
@@ -130,8 +130,9 @@ pub const Instruction = struct {
         return from_u8(raw);
     }
 
-    pub fn from_u16(raw: u16) !Instruction {
-        return Instruction.from_u8(@intCast(raw >> 8), @intCast(raw & 0xf));
+    pub fn from_u16(instr: u16) !Instruction {
+        const raw = [2]u8{ @intCast(instr >> 8), @intCast(instr & 0xff) };
+        return from_u8(raw);
     }
 
     pub fn to_u4(self: Instruction) [4]u4 {

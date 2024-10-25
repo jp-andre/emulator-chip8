@@ -8,5 +8,7 @@ pub const ProgramErrors = error{
 // Errors specific to this runtime
 pub const RuntimeErrors = error{
     NOT_IMPLEMENTED,
+    ASSERTION_ERROR, // for things that can't happen
     INSUFFICIENT_BUFFER,
+    // INTERNAL_ERROR,
 };
