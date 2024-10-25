@@ -13,9 +13,9 @@ const KeyboardErrors = error{
 
 fn qwerty_to_chip(char: u8) !u4 {
     return switch (std.ascii.toUpper(char)) {
-        '1' => 0x0,
-        '2' => 0x1,
-        '3' => 0x2,
+        '1' => 0x1,
+        '2' => 0x2,
+        '3' => 0x3,
         '4' => 0xC,
         'Q' => 0x4,
         'W' => 0x5,

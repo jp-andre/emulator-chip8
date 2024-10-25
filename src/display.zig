@@ -56,12 +56,13 @@ pub const DisplayState = struct {
     pub fn draw_sprite(self: *DisplayState, sprite: []const u8, x: u8, y: u8) bool {
         var ret = false;
 
-        for (0..sprite.len) |yy| {
-            const row: u8 = sprite[yy];
+        for (0..sprite.len) |y_iter| {
+            const yy: u16 = @intCast(y_iter);
+            const row: u8 = sprite[y_iter];
             for (0..8) |x_iter| {
                 const xx: u3 = @intCast(x_iter);
-                const draw_x = (x + xx) % WIDTH;
-                const draw_y = (y + yy) % HEIGHT;
+                const draw_x = (@as(u16, x) + @as(u16, xx)) % WIDTH;
+                const draw_y = (@as(u16, y) + @as(u16, yy)) % HEIGHT;
                 const value: u1 = @intCast(row >> (7 - xx) & 0x1);
                 ret = self.xor1(draw_x, draw_y, value) or ret;
             }

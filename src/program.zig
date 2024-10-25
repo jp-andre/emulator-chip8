@@ -69,7 +69,10 @@ pub const ProgramState = struct {
     pub fn execute_instruction(self: *ProgramState, instr: Instruction) !void {
         std.debug.print("0x{X} 0x{X} -> {any}\n", .{ instr.raw[0], instr.raw[1], instr });
         try switch (instr.op) {
-            OpCode.SYS => {},
+            OpCode.SYS => {
+                // FIXME: 0x00FF can be used to set 'hires' mode.
+                self.registers.PC += 1;
+            },
             OpCode.CLS => self.display.execute_clear(self, instr),
             OpCode.RET => self.ret(),
             OpCode.JP => self.jump(instr.addr.?),
@@ -129,8 +132,7 @@ pub const ProgramState = struct {
         if (self.registers.SP == 0) return error.STACK_OVERFLOW;
         const addr = self.stack[self.registers.SP - 1];
         if (addr >= self.memory.len) return error.JUMP_OUT_OF_BOUNDS;
-        // self.registers.PC = addr;
-        self.registers.PC = (addr - mem.MEMORY_START) / 2;
+        self.registers.PC = addr + 1;
         self.registers.SP -= 1;
     }
 
@@ -305,7 +307,7 @@ pub const ProgramState = struct {
             }
 
             // break now :)
-            if (tick >= 100) break;
+            if (tick >= 1000) break;
 
             tick += 1;
         }
