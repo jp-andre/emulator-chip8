@@ -9,7 +9,8 @@ pub const Registers = struct {
     SP: u8, // stack pointer
 
     pub fn set_vx(self: *Registers, x: u4, value: u8) !void {
-        if (x == 0xf) return error.VF_WRITE_FORBIDDEN;
+        // This is actually used by programs lol
+        // if (x == 0xf) return error.VF_WRITE_FORBIDDEN;
         self.Vx[x] = value;
     }
 
@@ -19,7 +20,8 @@ pub const Registers = struct {
             .I = 0,
             .DT = 0,
             .ST = 0,
-            .PC = 0, // corresponds to MEMORY_START
+            // FIXME: corresponds to MEMORY_START -- increments by 2... shoudl be the raw value instead
+            .PC = 0,
             .SP = 0,
         };
     }

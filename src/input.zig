@@ -65,4 +65,21 @@ pub const InputState = struct {
 
         return error.ASSERTION_ERROR;
     }
+
+    pub fn maybe_wait_key(self: *InputState) !?u4 {
+        // FIXME obviouly this cant work
+        const stdin = std.io.getStdIn();
+
+        var buffer = [1]u8{0};
+        const nbytes = try stdin.read(&buffer);
+        if (nbytes < 1) {
+            std.log.debug("read: read 0 bytes from stdin", .{});
+            return null;
+        }
+
+        const key = qwerty_to_chip(buffer[0]) catch return null;
+        @memset(&self.pressed_keys, false);
+        self.pressed_keys[key] = true;
+        return key;
+    }
 };

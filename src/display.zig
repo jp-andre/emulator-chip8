@@ -80,6 +80,7 @@ pub const DisplayState = struct {
 
         const flipped = self.draw_sprite(sprite, x, y);
         ps.registers.Vx[0xF] = if (flipped) 1 else 0;
+        ps.registers.PC += 1;
     }
 
     pub fn execute_clear(self: *DisplayState, ps: *ProgramState, instr: Instruction) !void {

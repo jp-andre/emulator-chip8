@@ -106,6 +106,16 @@ pub const ProgramState = struct {
             OpCode.RDR => self.exec_rdr(instr.r0.?),
         };
         try self.check_pc();
+        if (self.registers.DT > 0) {
+            // std.time.sleep(std.time.ns_per_ms * 500);
+            const key = try self.input.maybe_wait_key();
+            std.debug.print("Got key: {?x}\n", .{key});
+            self.registers.DT -= 1;
+        }
+        if (self.registers.ST > 0) {
+            std.debug.print("Audio is playing\n", .{});
+            self.registers.ST -= 1;
+        }
     }
 
     fn check_pc(self: *const ProgramState) !void {
@@ -119,13 +129,15 @@ pub const ProgramState = struct {
         if (self.registers.SP == 0) return error.STACK_OVERFLOW;
         const addr = self.stack[self.registers.SP - 1];
         if (addr >= self.memory.len) return error.JUMP_OUT_OF_BOUNDS;
-        self.registers.PC = addr;
+        // self.registers.PC = addr;
+        self.registers.PC = (addr - mem.MEMORY_START) / 2;
         self.registers.SP -= 1;
     }
 
     fn jump(self: *ProgramState, addr: u12) !void {
         if (addr >= self.memory.len) return error.JUMP_OUT_OF_BOUNDS;
-        self.registers.PC = addr;
+        // self.registers.PC = addr;
+        self.registers.PC = (addr - mem.MEMORY_START) / 2;
     }
 
     fn call(self: *ProgramState, addr: u12) !void {
@@ -133,7 +145,8 @@ pub const ProgramState = struct {
         if (self.registers.SP >= self.stack.len) return error.STACK_OVERFLOW;
         self.registers.SP += 1;
         self.stack[self.registers.SP - 1] = self.registers.PC;
-        self.registers.PC = addr;
+        // self.registers.PC = addr;
+        self.registers.PC = (addr - mem.MEMORY_START) / 2;
     }
 
     fn skipif(self: *ProgramState, cond: bool) !void {
@@ -273,17 +286,22 @@ pub const ProgramState = struct {
 
         var tick: usize = 0;
         while (true) {
+            std.debug.print("TICK: {d}\n", .{tick});
+
             const instr = try self.current_instruction();
             try self.execute_instruction(instr);
 
-            try self.display.dumps(&display_buffer, true);
-            _ = try std.fmt.bufPrint(&display_buffer, "* TICK: {d} ", .{tick});
-            // std.debug.print("TICK: {d}\n", args: anytype)
             std.debug.print("{any}\n", .{self.registers});
-            std.debug.print("{s}\n", .{display_buffer});
+            std.debug.print("{any}\n", .{self.input});
+            if (instr.op == OpCode.DRW or instr.op == OpCode.CLS) {
+                try self.display.dumps(&display_buffer, true);
+                _ = try std.fmt.bufPrint(&display_buffer, "* TICK: {d} ", .{tick});
+                // std.debug.print("TICK: {d}\n", args: anytype)
+                std.debug.print("{s}\n", .{display_buffer});
+            }
 
             // break now :)
-            if (tick >= 3) break;
+            // if (tick >= 100) break;
 
             tick += 1;
         }
