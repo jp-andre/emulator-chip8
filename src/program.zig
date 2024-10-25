@@ -85,7 +85,13 @@ pub const ProgramState = struct {
             OpCode.SKNP => self.skipif(!self.input.pressed_keys[self.registers.Vx[instr.r0.?]]),
             OpCode.RDDT => self.exec_load(instr.r0.?, self.registers.DT),
             OpCode.WAITK => self.exec_waitk(instr.r0.?),
-            else => error.NOT_IMPLEMENTED,
+            OpCode.SETDT => self.exec_setdt(self.registers.Vx[instr.r0.?]),
+            OpCode.SETST => self.exec_setst(self.registers.Vx[instr.r0.?]),
+            OpCode.ADDIR => self.exec_addi(self.registers.Vx[instr.r0.?]),
+            OpCode.LDFONT => self.exec_ldi(mem.BUILTIN_FONT_START + @as(u12, self.registers.Vx[instr.r0.?]) * 5),
+            OpCode.LDBCD => self.exec_ldbcd(self.registers.Vx[instr.r0.?]),
+            OpCode.STRR => self.exec_strr(instr.r0.?),
+            OpCode.RDR => self.exec_rdr(instr.r0.?),
         };
         try self.check_pc();
     }
@@ -205,6 +211,43 @@ pub const ProgramState = struct {
     fn exec_waitk(self: *ProgramState, register: u4) !void {
         const pressed_key = try self.input.wait_key();
         try self.registers.set_vx(register, pressed_key);
+        self.registers.PC += 1;
+    }
+
+    fn exec_setdt(self: *ProgramState, value: u8) !void {
+        self.registers.DT = value;
+        self.registers.PC += 1;
+    }
+
+    fn exec_setst(self: *ProgramState, value: u8) !void {
+        self.registers.ST = value;
+        self.registers.PC += 1;
+    }
+
+    fn exec_addi(self: *ProgramState, value: u8) !void {
+        const new_value = self.registers.I + @as(u16, value);
+        self.registers.I = new_value;
+        self.registers.PC += 1;
+    }
+
+    fn exec_ldbcd(self: *ProgramState, value: u8) !void {
+        self.memory[self.registers.I] = value / 100;
+        self.memory[self.registers.I + 1] = (value / 10) % 10;
+        self.memory[self.registers.I + 2] = value % 10;
+        self.registers.PC += 1;
+    }
+
+    fn exec_strr(self: *ProgramState, register: u4) !void {
+        for (0..register + 1) |r| {
+            self.memory[self.registers.I + r] = self.registers.Vx[r];
+        }
+        self.registers.PC += 1;
+    }
+
+    fn exec_rdr(self: *ProgramState, register: u4) !void {
+        for (0..register + 1) |r| {
+            self.registers.Vx[r] = self.memory[self.registers.I + r];
+        }
         self.registers.PC += 1;
     }
 };
