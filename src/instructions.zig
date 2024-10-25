@@ -1,3 +1,5 @@
+const std = @import("std");
+
 // http://devernay.free.fr/hacks/chip8/C8TECH10.HTM#3.1
 pub const OpCode = enum {
     SYS, // 0nnn - SYS addr.  Jump to a machine code routine at nnn. (IGNORED)
@@ -55,6 +57,8 @@ pub const Instruction = struct {
         const nibble = x[3];
         const byte = ri[1];
         const addr = @as(u12, x[1]) << 8 | @as(u12, x[2]) << 4 | @as(u12, x[3]) << 0;
+
+        errdefer std.debug.print("Encountered invalid instruction: 0x{X}\n", .{instr_u16(ri)});
 
         const parsed = switch (x[0]) {
             0x0 => switch (addr) {

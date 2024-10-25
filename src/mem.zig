@@ -20,8 +20,7 @@ pub const Registers = struct {
             .I = 0,
             .DT = 0,
             .ST = 0,
-            // FIXME: corresponds to MEMORY_START -- increments by 2... shoudl be the raw value instead
-            .PC = 0,
+            .PC = MEMORY_START,
             .SP = 0,
         };
     }
@@ -31,7 +30,7 @@ pub const Registers = struct {
 pub const StackBuffer = [16]u16;
 pub const RawMemoryBuffer = [MEMORY_END]u8;
 
-pub const MEMORY_END = 0x10000; // 4096;
+pub const MEMORY_END = 4096; // 0x10000; // 4096;
 pub const MEMORY_START = 0x200;
 // MEMORY_START_ETI660 = 0x600,
 pub const BUILTIN_FONT_START = 0x100;
