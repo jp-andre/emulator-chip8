@@ -85,10 +85,9 @@ pub const DisplayState = struct {
     }
 
     pub fn execute_clear(self: *DisplayState, ps: *ProgramState, instr: Instruction) !void {
-        _ = ps;
-
         if (instr.op != OpCode.CLS) return error.ASSERTION_ERROR;
         @memset(&self.bits, 0);
+        ps.registers.PC += 1;
     }
 
     pub fn dumps(self: *const DisplayState, out: []u8, border: bool) !void {

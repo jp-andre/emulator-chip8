@@ -26,7 +26,7 @@ pub const ProgramState = struct {
         var prg = ProgramState{
             .registers = mem.Registers.init(),
             .stack = [_]u16{0} ** 16,
-            .memory = [_]u8{0} ** 4096,
+            .memory = [_]u8{0} ** mem.MEMORY_END,
             .display = display.DisplayState.init(),
             .randomizer = std.Random.DefaultPrng.init(@intCast(std.time.milliTimestamp())),
             .input = input.InputState.init(),
@@ -36,6 +36,7 @@ pub const ProgramState = struct {
     }
 
     pub fn load_memory(self: *ProgramState, binary_data: []const u8) !void {
+        std.debug.print("Loading {d} bytes...\n", .{binary_data.len});
         if (binary_data.len > mem.MEMORY_END - mem.MEMORY_START) return error.INSUFFICIENT_BUFFER;
         @memcpy(self.memory[mem.MEMORY_START .. mem.MEMORY_START + binary_data.len], binary_data);
     }
@@ -67,10 +68,10 @@ pub const ProgramState = struct {
     }
 
     pub fn execute_instruction(self: *ProgramState, instr: Instruction) !void {
-        std.debug.print("0x{X} 0x{X} -> {any}\n", .{ instr.raw[0], instr.raw[1], instr });
         try switch (instr.op) {
             OpCode.SYS => {
-                // FIXME: 0x00FF can be used to set 'hires' mode.
+                // 0x00FF = 'hires'
+                // 0x00C2 = 'scroll-down 2' (00Cx -> scroll down by x)
                 self.registers.PC += 1;
             },
             OpCode.CLS => self.display.execute_clear(self, instr),
@@ -288,13 +289,14 @@ pub const ProgramState = struct {
         var display_buffer = [_]u8{0} ** (display.DUMP_BUFSIZE);
 
         std.log.info("Starting program", .{});
-        std.debug.print("{any}\n", .{self.registers});
+        // std.debug.print("{any}\n", .{self.registers});
 
         var tick: usize = 0;
         while (true) {
             std.debug.print("TICK: {d}\n", .{tick});
 
             const instr = try self.current_instruction();
+            std.debug.print("0x{X} 0x{X} -> {any}\n", .{ instr.raw[0], instr.raw[1], instr });
             try self.execute_instruction(instr);
 
             std.debug.print("{any}\n", .{self.registers});
@@ -307,7 +309,10 @@ pub const ProgramState = struct {
             }
 
             // break now :)
-            if (tick >= 1000) break;
+            // if (tick >= 100) break;
+            if (tick % 1000 == 0) {
+                _ = try self.input.maybe_wait_key();
+            }
 
             tick += 1;
         }

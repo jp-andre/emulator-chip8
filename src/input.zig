@@ -70,6 +70,8 @@ pub const InputState = struct {
         // FIXME obviouly this cant work
         const stdin = std.io.getStdIn();
 
+        @memset(&self.pressed_keys, false);
+
         var buffer = [1]u8{0};
         const nbytes = try stdin.read(&buffer);
         if (nbytes < 1) {
@@ -78,7 +80,6 @@ pub const InputState = struct {
         }
 
         const key = qwerty_to_chip(buffer[0]) catch return null;
-        @memset(&self.pressed_keys, false);
         self.pressed_keys[key] = true;
         return key;
     }
