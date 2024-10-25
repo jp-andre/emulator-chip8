@@ -60,5 +60,11 @@ pub fn run(path: []const u8) !void {
     defer allocator.free(binary_data);
     var prg = try load_program(binary_data);
     defer prg.close();
-    try prg.run();
+    prg.run() catch |e| switch (e) {
+        error.INFINITE_LOOP => {
+            std.log.info("Program entered an infinite loop, exiting.", .{});
+            std.process.exit(0);
+        },
+        else => return e,
+    };
 }

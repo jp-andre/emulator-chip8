@@ -137,7 +137,11 @@ pub const ProgramState = struct {
     fn jump(self: *ProgramState, addr: u12) !void {
         if (addr >= self.memory.len) return error.JUMP_OUT_OF_BOUNDS;
         // self.registers.PC = addr;
+        const old_pc = self.registers.PC;
         self.registers.PC = (addr - mem.MEMORY_START) / 2;
+        if (self.registers.PC == old_pc) {
+            return error.INFINITE_LOOP;
+        }
     }
 
     fn call(self: *ProgramState, addr: u12) !void {
@@ -301,7 +305,7 @@ pub const ProgramState = struct {
             }
 
             // break now :)
-            // if (tick >= 100) break;
+            if (tick >= 100) break;
 
             tick += 1;
         }
