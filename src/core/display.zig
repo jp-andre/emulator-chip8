@@ -1,13 +1,13 @@
 const std = @import("std");
 const testing = std.testing;
 const mem = @import("mem.zig");
-const program = @import("program.zig");
+const emulator = @import("emulator.zig");
 const errors = @import("errors.zig");
 const instructions = @import("instructions.zig");
 
 const OpCode = instructions.OpCode;
 const Instruction = instructions.Instruction;
-const ProgramState = program.ProgramState;
+const Emulator = emulator.Emulator;
 
 pub const WIDTH = 64;
 pub const HEIGHT = 32;
@@ -43,7 +43,7 @@ pub const DisplayState = struct {
         };
     }
 
-    // FIXME: worst perf possible i guess
+    // FIXME: poor perf: should be using u8 operations
     // Returns true if the pixel is erased
     pub fn xor1(self: *DisplayState, x: usize, y: usize, v: u1) bool {
         const offset: usize = y * WIDTH + x;
@@ -71,23 +71,23 @@ pub const DisplayState = struct {
         return ret;
     }
 
-    pub fn execute_draw(self: *DisplayState, ps: *ProgramState, instr: Instruction) !void {
+    pub fn execute_draw(self: *DisplayState, emu: *Emulator, instr: Instruction) !void {
         if (instr.op != OpCode.DRW) return error.ASSERTION_ERROR;
 
-        const x = ps.registers.Vx[instr.r0.?];
-        const y = ps.registers.Vx[instr.r1.?];
+        const x = emu.registers.Vx[instr.r0.?];
+        const y = emu.registers.Vx[instr.r1.?];
         const n = instr.nibble.?;
-        const sprite = ps.memory[ps.registers.I .. ps.registers.I + n];
+        const sprite = emu.memory[emu.registers.I .. emu.registers.I + n];
 
         const flipped = self.draw_sprite(sprite, x, y);
-        ps.registers.Vx[0xF] = if (flipped) 1 else 0;
-        ps.registers.PC += 2;
+        emu.registers.Vx[0xF] = if (flipped) 1 else 0;
+        emu.registers.PC += 2;
     }
 
-    pub fn execute_clear(self: *DisplayState, ps: *ProgramState, instr: Instruction) !void {
+    pub fn execute_clear(self: *DisplayState, emu: *Emulator, instr: Instruction) !void {
         if (instr.op != OpCode.CLS) return error.ASSERTION_ERROR;
         @memset(&self.bits, 0);
-        ps.registers.PC += 2;
+        emu.registers.PC += 2;
     }
 
     pub fn dumps(self: *const DisplayState, out: []u8, border: bool) !void {
@@ -148,39 +148,39 @@ test "can create display state" {
 test "can draw basic sprite" {
     var strbuf = [_]u8{0} ** (DUMP_BUFSIZE);
 
-    var ps = ProgramState.init();
+    var emu = Emulator.init();
     var flipped = false;
 
     for (0..16) |c| {
         const sprite = BuiltinSprites[c];
         const x: u8 = @intCast((c % 8) * 6);
         const y: u8 = @intCast((c / 8) * 6);
-        flipped = ps.display.draw_sprite(&sprite, x, y);
+        flipped = emu.display.draw_sprite(&sprite, x, y);
     }
 
     try testing.expectEqual(false, flipped);
 
     const expected = @embedFile("test/assets/test_display_builtins.txt");
-    try ps.display.dumps(&strbuf, true);
+    try emu.display.dumps(&strbuf, true);
     // std.debug.print("DISPLAY:\n{!s}\n", .{strbuf});
     try testing.expectEqualStrings(expected, &strbuf);
 }
 
 test "can execute CLS" {
     var strbuf = [_]u8{0} ** (DUMP_BUFSIZE);
-    var ps = ProgramState.init();
+    var emu = Emulator.init();
 
     // draw something
     const sprite = BuiltinSprites[0];
-    _ = ps.display.draw_sprite(&sprite, 0, 0);
-    try ps.display.dumps(&strbuf, true);
+    _ = emu.display.draw_sprite(&sprite, 0, 0);
+    try emu.display.dumps(&strbuf, true);
 
     const instr = try Instruction.from_u16(0x00E0);
-    // try ps.display.execute_clear(&ps, instr);
-    try ps.execute_instruction(instr);
+    // try emu.display.execute_clear(&emu, instr);
+    try emu.execute_instruction(instr);
 
     const expected = @embedFile("test/assets/test_display_empty.txt");
-    try ps.display.dumps(&strbuf, true);
+    try emu.display.dumps(&strbuf, true);
     // std.debug.print("DISPLAY:\n{!s}\n", .{strbuf});
     try testing.expectEqualStrings(expected, &strbuf);
 }

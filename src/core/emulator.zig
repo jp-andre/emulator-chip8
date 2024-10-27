@@ -14,7 +14,7 @@ const RawInstruction = instructions.RawInstruction;
 // https://github-wiki-see.page/m/mattmikolay/chip-8/wiki/CHIP%E2%80%908-Instruction-Set
 const ENABLE_BUG_COMPATIBILITY = true;
 
-pub const ProgramState = struct {
+pub const Emulator = struct {
     registers: mem.Registers,
     stack: mem.StackBuffer,
     memory: mem.RawMemoryBuffer,
@@ -22,8 +22,8 @@ pub const ProgramState = struct {
     randomizer: std.Random.DefaultPrng,
     input: input.InputState,
 
-    pub fn init() ProgramState {
-        var prg = ProgramState{
+    pub fn init() Emulator {
+        var emu = Emulator{
             .registers = mem.Registers.init(),
             .stack = [_]u16{0} ** 16,
             .memory = [_]u8{0} ** mem.MEMORY_END,
@@ -31,22 +31,22 @@ pub const ProgramState = struct {
             .randomizer = std.Random.DefaultPrng.init(@intCast(std.time.milliTimestamp())),
             .input = input.InputState.init(),
         };
-        prg.load_builtin_fonts();
-        return prg;
+        emu.load_builtin_fonts();
+        return emu;
     }
 
-    pub fn load_memory(self: *ProgramState, binary_data: []const u8) !void {
+    pub fn load_memory(self: *Emulator, binary_data: []const u8) !void {
         std.debug.print("Loading {d} bytes...\n", .{binary_data.len});
         if (binary_data.len > mem.MEMORY_END - mem.MEMORY_START) return error.INSUFFICIENT_BUFFER;
         @memcpy(self.memory[mem.MEMORY_START .. mem.MEMORY_START + binary_data.len], binary_data);
     }
 
-    pub fn close(self: *ProgramState) void {
+    pub fn close(self: *Emulator) void {
         std.log.info("Bye.", .{});
         _ = self;
     }
 
-    fn load_builtin_fonts(self: *ProgramState) void {
+    fn load_builtin_fonts(self: *Emulator) void {
         const offset = mem.BUILTIN_FONT_START;
         for (0..display.BuiltinSprites.len) |k| {
             // FIXME why do I need to iterate here... this is all a single buffer, isn't it?
@@ -54,19 +54,19 @@ pub const ProgramState = struct {
         }
     }
 
-    pub fn current_instruction_u8(self: *const ProgramState) !RawInstruction {
+    pub fn current_instruction_u8(self: *const Emulator) !RawInstruction {
         const pc = self.registers.PC;
         if (pc + 1 > self.memory.len) return error.JUMP_OUT_OF_BOUNDS;
         const ri = [2]u8{ self.memory[pc], self.memory[pc + 1] };
         return ri;
     }
 
-    pub fn current_instruction(self: *const ProgramState) !Instruction {
+    pub fn current_instruction(self: *const Emulator) !Instruction {
         const ri = try self.current_instruction_u8();
         return Instruction.from_u8(ri);
     }
 
-    pub fn execute_instruction(self: *ProgramState, instr: Instruction) !void {
+    pub fn execute_instruction(self: *Emulator, instr: Instruction) !void {
         try switch (instr.op) {
             OpCode.SYS => {
                 // 0x00FF = 'hires'
@@ -120,14 +120,14 @@ pub const ProgramState = struct {
         }
     }
 
-    fn check_pc(self: *const ProgramState) !void {
+    fn check_pc(self: *const Emulator) !void {
         const offset = self.registers.PC;
         if (offset < mem.MEMORY_START or offset >= self.memory.len) {
             return error.JUMP_OUT_OF_BOUNDS;
         }
     }
 
-    fn ret(self: *ProgramState) !void {
+    fn ret(self: *Emulator) !void {
         if (self.registers.SP == 0) return error.STACK_OVERFLOW;
         const addr = self.stack[self.registers.SP - 1];
         if (addr >= self.memory.len) return error.JUMP_OUT_OF_BOUNDS;
@@ -135,7 +135,7 @@ pub const ProgramState = struct {
         self.registers.SP -= 1;
     }
 
-    fn jump(self: *ProgramState, addr: u12) !void {
+    fn jump(self: *Emulator, addr: u12) !void {
         if (addr >= self.memory.len) return error.JUMP_OUT_OF_BOUNDS;
         if (addr == self.registers.PC) {
             return error.INFINITE_LOOP;
@@ -143,7 +143,7 @@ pub const ProgramState = struct {
         self.registers.PC = addr;
     }
 
-    fn call(self: *ProgramState, addr: u12) !void {
+    fn call(self: *Emulator, addr: u12) !void {
         if (addr >= self.memory.len) return error.JUMP_OUT_OF_BOUNDS;
         if (self.registers.SP >= self.stack.len) return error.STACK_OVERFLOW;
         self.registers.SP += 1;
@@ -151,16 +151,16 @@ pub const ProgramState = struct {
         self.registers.PC = addr;
     }
 
-    fn skipif(self: *ProgramState, cond: bool) !void {
+    fn skipif(self: *Emulator, cond: bool) !void {
         self.registers.PC += if (cond) 4 else 2;
     }
 
-    fn exec_load(self: *ProgramState, register: u4, value: u8) !void {
+    fn exec_load(self: *Emulator, register: u4, value: u8) !void {
         try self.registers.set_vx(register, value);
         self.registers.PC += 2;
     }
 
-    fn exec_add(self: *ProgramState, register: u4, value: u8, set_vf: bool) !void {
+    fn exec_add(self: *Emulator, register: u4, value: u8, set_vf: bool) !void {
         const new_value = @as(u16, self.registers.Vx[register]) + @as(u16, value);
         if (set_vf) {
             self.registers.Vx[0xF] = if (new_value > 0xFF) 1 else 0;
@@ -169,7 +169,7 @@ pub const ProgramState = struct {
         self.registers.PC += 2;
     }
 
-    fn exec_sub(self: *ProgramState, register: u4, value: u8, set_vf: bool) !void {
+    fn exec_sub(self: *Emulator, register: u4, value: u8, set_vf: bool) !void {
         var new_value = @as(i16, self.registers.Vx[register]) - @as(i16, value);
         if (new_value < 0) {
             if (set_vf) self.registers.Vx[0xF] = 0;
@@ -182,7 +182,7 @@ pub const ProgramState = struct {
         self.registers.PC += 2;
     }
 
-    fn exec_subn(self: *ProgramState, register: u4, value: u8, set_vf: bool) !void {
+    fn exec_subn(self: *Emulator, register: u4, value: u8, set_vf: bool) !void {
         var new_value = @as(i16, value) - @as(i16, self.registers.Vx[register]);
         if (new_value > 0xFF) {
             if (set_vf) self.registers.Vx[0xF] = 1;
@@ -195,25 +195,25 @@ pub const ProgramState = struct {
         self.registers.PC += 2;
     }
 
-    fn exec_or(self: *ProgramState, register: u4, value: u8) !void {
+    fn exec_or(self: *Emulator, register: u4, value: u8) !void {
         const new_value = self.registers.Vx[register] | value;
         try self.registers.set_vx(register, new_value);
         self.registers.PC += 2;
     }
 
-    fn exec_xor(self: *ProgramState, register: u4, value: u8) !void {
+    fn exec_xor(self: *Emulator, register: u4, value: u8) !void {
         const new_value = self.registers.Vx[register] ^ value;
         try self.registers.set_vx(register, new_value);
         self.registers.PC += 2;
     }
 
-    fn exec_and(self: *ProgramState, register: u4, value: u8) !void {
+    fn exec_and(self: *Emulator, register: u4, value: u8) !void {
         const new_value = self.registers.Vx[register] & value;
         try self.registers.set_vx(register, new_value);
         self.registers.PC += 2;
     }
 
-    fn exec_shift(self: *ProgramState, register: u4, value: u8, right: bool) !void {
+    fn exec_shift(self: *Emulator, register: u4, value: u8, right: bool) !void {
         const val = if (ENABLE_BUG_COMPATIBILITY) self.registers.Vx[register] else value;
         if (right) {
             self.registers.Vx[0xF] = val & 0x1;
@@ -225,54 +225,54 @@ pub const ProgramState = struct {
         self.registers.PC += 2;
     }
 
-    fn exec_ldi(self: *ProgramState, addr: u12) !void {
+    fn exec_ldi(self: *Emulator, addr: u12) !void {
         self.registers.I = addr;
         self.registers.PC += 2;
     }
 
-    fn exec_rnd(self: *ProgramState, register: u4, byte: u8) !void {
+    fn exec_rnd(self: *Emulator, register: u4, byte: u8) !void {
         const value: u8 = @truncate(self.randomizer.next() & 0xFF & byte);
         try self.registers.set_vx(register, value);
         self.registers.PC += 2;
     }
 
-    fn exec_waitk(self: *ProgramState, register: u4) !void {
+    fn exec_waitk(self: *Emulator, register: u4) !void {
         const pressed_key = try self.input.wait_key();
         try self.registers.set_vx(register, pressed_key);
         self.registers.PC += 2;
     }
 
-    fn exec_setdt(self: *ProgramState, value: u8) !void {
+    fn exec_setdt(self: *Emulator, value: u8) !void {
         self.registers.DT = value;
         self.registers.PC += 2;
     }
 
-    fn exec_setst(self: *ProgramState, value: u8) !void {
+    fn exec_setst(self: *Emulator, value: u8) !void {
         self.registers.ST = value;
         self.registers.PC += 2;
     }
 
-    fn exec_addi(self: *ProgramState, value: u8) !void {
+    fn exec_addi(self: *Emulator, value: u8) !void {
         const new_value = self.registers.I + @as(u16, value);
         self.registers.I = new_value;
         self.registers.PC += 2;
     }
 
-    fn exec_ldbcd(self: *ProgramState, value: u8) !void {
+    fn exec_ldbcd(self: *Emulator, value: u8) !void {
         self.memory[self.registers.I] = value / 100;
         self.memory[self.registers.I + 1] = (value / 10) % 10;
         self.memory[self.registers.I + 2] = value % 10;
         self.registers.PC += 2;
     }
 
-    fn exec_strr(self: *ProgramState, register: u4) !void {
+    fn exec_strr(self: *Emulator, register: u4) !void {
         for (0..register + 1) |r| {
             self.memory[self.registers.I + r] = self.registers.Vx[r];
         }
         self.registers.PC += 2;
     }
 
-    fn exec_rdr(self: *ProgramState, register: u4) !void {
+    fn exec_rdr(self: *Emulator, register: u4) !void {
         for (0..register + 1) |r| {
             self.registers.Vx[r] = self.memory[self.registers.I + r];
         }
@@ -280,7 +280,7 @@ pub const ProgramState = struct {
     }
 
     // main loop
-    pub fn run(self: *ProgramState) !void {
+    pub fn run(self: *Emulator) !void {
         var display_buffer = [_]u8{0} ** (display.DUMP_BUFSIZE);
 
         std.log.info("Starting program", .{});
@@ -317,7 +317,7 @@ pub const ProgramState = struct {
 };
 
 test "can create program state" {
-    const st = ProgramState.init();
+    const st = Emulator.init();
 
     const curi = try st.current_instruction();
     try testing.expectEqual(0x0, curi.to_u16());

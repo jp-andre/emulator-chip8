@@ -15,3 +15,8 @@ pub const RuntimeErrors = error{
     // INTERNAL_ERROR,
     MISSING_ARGUMENT,
 };
+
+const FileErrors = error{
+    INVALID_HEX,
+    FAILED_TO_READ_FILE,
+};

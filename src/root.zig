@@ -1,11 +1,6 @@
 const std = @import("std");
 const Allocator = std.mem.Allocator;
-const ProgramState = @import("program.zig").ProgramState;
-
-const FileErrors = error{
-    INVALID_HEX,
-    FAILED_TO_READ_FILE,
-};
+const Emulator = @import("core/emulator.zig").Emulator;
 
 fn read_file(allocator: Allocator, path: []const u8) ![]u8 {
     const file = try std.fs.cwd().openFile(path, std.fs.File.OpenFlags{});
@@ -15,7 +10,7 @@ fn read_file(allocator: Allocator, path: []const u8) ![]u8 {
     const data = try allocator.alloc(u8, stat.size);
     @memset(data, 0);
     const nbytes = try file.readAll(data);
-    if (nbytes != stat.size) return error.FAILED_TO_READ_FILE;
+    if (nbytes != stat.size) return error.FILE_READ_FAILED;
     return data;
 }
 
@@ -39,25 +34,17 @@ fn convert_binary_data(allocator: Allocator, data: []const u8) ![]u8 {
     return binary_data;
 }
 
-fn load_program(binary_data: []const u8) !ProgramState {
-    var prg = ProgramState.init();
+fn load_program(binary_data: []const u8) !Emulator {
+    var prg = Emulator.init();
     try prg.load_memory(binary_data);
     return prg;
 }
 
-var main_allocator: ?Allocator = null;
-pub fn get_allocator() Allocator {
-    if (main_allocator != null) return main_allocator.?;
-    main_allocator = std.heap.page_allocator;
-    return main_allocator.?;
-}
-
-pub fn run(path: []const u8) !void {
-    const allocator = get_allocator();
-    const file_data = try read_file(allocator, path);
-    defer allocator.free(file_data);
-    const binary_data = try convert_binary_data(allocator, file_data);
-    defer allocator.free(binary_data);
+pub fn run(gpa: Allocator, path: []const u8) !void {
+    const file_data = try read_file(gpa, path);
+    defer gpa.free(file_data);
+    const binary_data = try convert_binary_data(gpa, file_data);
+    defer gpa.free(binary_data);
     var prg = try load_program(binary_data);
     defer prg.close();
     prg.run() catch |e| switch (e) {
