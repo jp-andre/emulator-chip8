@@ -135,6 +135,7 @@ pub const SdlContext = struct {
             // FIXME: aim to execute at 500Hz
             // This is not entirely correct, since we should account for time spent here and drawing
             // Proper sync is for another day :)
+            // Ideally we do something like 500 instructions per frame and then draw.
             defer if (!self.no_sleep) sdl.SDL_Delay(2);
 
             var event: sdl.SDL_Event = undefined;
