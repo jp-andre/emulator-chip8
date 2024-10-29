@@ -4,6 +4,8 @@ This program is a simple example of a CHIP-8 emulator.
 This was written to learn Zig and have a little bit of
 fun.
 
+![image](https://github.com/user-attachments/assets/23adeeda-1a18-4f36-a86b-daede1a91a22)
+
 ## Resources
 
 - Zig: https://ziglang.org/
