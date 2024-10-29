@@ -1,6 +1,6 @@
 const std = @import("std");
 const Allocator = std.mem.Allocator;
-const Emulator = @import("core/emulator.zig").Emulator;
+const Emulator = @import("core").emulator.Emulator;
 
 fn read_file(allocator: Allocator, path: []const u8) ![]u8 {
     const file = try std.fs.cwd().openFile(path, std.fs.File.OpenFlags{});
@@ -34,19 +34,26 @@ fn convert_binary_data(allocator: Allocator, data: []const u8) ![]u8 {
     return binary_data;
 }
 
-fn load_program(binary_data: []const u8) !Emulator {
-    var prg = Emulator.init();
+fn load_program(binary_data: []const u8, cli_mode: bool) !Emulator {
+    var prg = Emulator.init(cli_mode);
     try prg.load_memory(binary_data);
     return prg;
 }
 
-pub fn run(gpa: Allocator, path: []const u8) !void {
-    const file_data = try read_file(gpa, path);
-    defer gpa.free(file_data);
-    const binary_data = try convert_binary_data(gpa, file_data);
-    defer gpa.free(binary_data);
-    var prg = try load_program(binary_data);
-    defer prg.close();
+pub fn create(allocator: Allocator, path: []const u8) !Emulator {
+    const file_data = try read_file(allocator, path);
+    defer allocator.free(file_data);
+    const binary_data = try convert_binary_data(allocator, file_data);
+    defer allocator.free(binary_data);
+    return try load_program(binary_data, false);
+}
+
+pub fn run_cli(allocator: Allocator, path: []const u8) !void {
+    const file_data = try read_file(allocator, path);
+    defer allocator.free(file_data);
+    const binary_data = try convert_binary_data(allocator, file_data);
+    defer allocator.free(binary_data);
+    const prg = try load_program(binary_data, true);
     prg.run() catch |e| switch (e) {
         error.INFINITE_LOOP => {
             std.log.info("Program entered an infinite loop, exiting.", .{});

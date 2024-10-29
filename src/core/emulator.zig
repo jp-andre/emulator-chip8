@@ -22,7 +22,10 @@ pub const Emulator = struct {
     randomizer: std.Random.DefaultPrng,
     input: input.InputState,
 
-    pub fn init() Emulator {
+    // hack :)
+    cli_mode: bool,
+
+    pub fn init(cli_mode: bool) Emulator {
         var emu = Emulator{
             .registers = mem.Registers.init(),
             .stack = [_]u16{0} ** 16,
@@ -30,6 +33,7 @@ pub const Emulator = struct {
             .display = display.DisplayState.init(),
             .randomizer = std.Random.DefaultPrng.init(@intCast(std.time.milliTimestamp())),
             .input = input.InputState.init(),
+            .cli_mode = cli_mode,
         };
         emu.load_builtin_fonts();
         return emu;
@@ -110,12 +114,15 @@ pub const Emulator = struct {
         };
         try self.check_pc();
         if (self.registers.DT > 0) {
-            const key = try self.input.maybe_wait_key();
-            std.debug.print("Got key: {?x}\n", .{key});
+            if (self.cli_mode) {
+                const key = try self.input.maybe_wait_key();
+                std.debug.print("Got key: {?x}\n", .{key});
+            }
             self.registers.DT -= 1;
         }
         if (self.registers.ST > 0) {
-            std.debug.print("Audio is playing\n", .{});
+            // FIXME: Implement audio with SDL
+            // std.debug.print("Audio is playing\n", .{});
             self.registers.ST -= 1;
         }
     }
@@ -135,7 +142,7 @@ pub const Emulator = struct {
         self.registers.SP -= 1;
     }
 
-    fn jump(self: *Emulator, addr: u12) !void {
+    fn jump(self: *Emulator, addr: u12) errors.ProgramErrors!void {
         if (addr >= self.memory.len) return error.JUMP_OUT_OF_BOUNDS;
         if (addr == self.registers.PC) {
             return error.INFINITE_LOOP;

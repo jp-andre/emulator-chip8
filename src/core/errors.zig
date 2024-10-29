@@ -3,7 +3,7 @@ pub const ProgramErrors = error{
     JUMP_OUT_OF_BOUNDS,
     STACK_OVERFLOW,
     // http://devernay.free.fr/hacks/chip8/C8TECH10.HTM#3.0
-    VF_WRITE_FORBIDDEN,
+    // VF_WRITE_FORBIDDEN,
     INFINITE_LOOP, // Not 100% an error, but helps.
 };
 

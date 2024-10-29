@@ -7,11 +7,12 @@ const errors = @import("errors.zig");
 // 7	8	9	E
 // A	0	B	F
 
-const KeyboardErrors = error{
+pub const KeyboardErrors = error{
     INVALID_KEY,
+    QUIT,
 };
 
-fn qwerty_to_chip(char: u8) !u4 {
+pub fn qwerty_to_chip(char: u8) !u4 {
     return switch (std.ascii.toUpper(char)) {
         '1' => 0x1,
         '2' => 0x2,
@@ -33,16 +34,32 @@ fn qwerty_to_chip(char: u8) !u4 {
     };
 }
 
+// FIXME: this is not a good use of opaque (since no C interaction here)
+pub const WaitKeyDataType = opaque {};
+
 pub const InputState = struct {
     pressed_keys: [16]bool,
+    wait_key_cb: ?*const fn (data: *WaitKeyDataType) KeyboardErrors!u4,
+    wait_key_data: ?*WaitKeyDataType,
 
     pub fn init() InputState {
         return InputState{
             .pressed_keys = [_]bool{false} ** 16,
+            .wait_key_cb = null,
+            .wait_key_data = null,
         };
     }
 
+    pub fn set_wait_key_cb(self: *InputState, cb: fn (data: *WaitKeyDataType) KeyboardErrors!u4, data: *WaitKeyDataType) void {
+        self.wait_key_cb = cb;
+        self.wait_key_data = data;
+    }
+
     pub fn wait_key(self: *InputState) !u4 {
+        if (self.wait_key_cb != null) {
+            return self.wait_key_cb.?(self.wait_key_data.?);
+        }
+
         // FIXME obviouly this cant work
         const stdin = std.io.getStdIn();
 

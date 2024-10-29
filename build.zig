@@ -25,13 +25,10 @@ pub fn build(b: *std.Build) void {
         .optimize = optimize,
     });
 
-    // const is_macos = builtin.target.os.tag == .macos;
-    // const pfx = if (is_macos) "/opt/homebrew/" else "/usr/";
-    // lib.addLibraryPath(b.path(pfx ++ "lib/libSDL2.a"));
-    // lib.addIncludePath(b.path(pfx ++ "include/SDL2"));
-    // lib.addConfigHeader(config_header: *Step.ConfigHeader)
-    // lib.addIncludePath(b.path(pfx));
-    // lib.addLibraryPath(b.path("lib/libSDL2.a"));
+    const core_module = b.addModule("core", .{
+        .root_source_file = b.path("src/core/core.zig"),
+    });
+    lib.root_module.addImport("core", core_module);
 
     // This declares intent for the library to be installed into the standard
     // location when the user invokes the "install" step (the default step when
@@ -46,11 +43,8 @@ pub fn build(b: *std.Build) void {
     });
 
     // Add SDL
-    // exe.linkSystemLibrary("sdl2");
-    exe.linkSystemLibrary2("sdl2", std.Build.Module.LinkSystemLibraryOptions{
-        .use_pkg_config = .yes,
-        .needed = true,
-    });
+    exe.linkSystemLibrary("sdl2");
+    exe.root_module.addImport("core", core_module);
 
     // This declares intent for the executable to be installed into the
     // standard location when the user invokes the "install" step (the default

@@ -35,11 +35,16 @@ pub const BuiltinSprites = [_][5]u8{
 pub const BUILTIN_SPRITES_LEN = 16 * 5;
 
 pub const DisplayState = struct {
+    // TODO: hires mode
     bits: [WIDTH * HEIGHT]u1,
+    width: u8,
+    height: u8,
 
     pub fn init() DisplayState {
         return DisplayState{
             .bits = [_]u1{0} ** (WIDTH * HEIGHT),
+            .width = WIDTH,
+            .height = HEIGHT,
         };
     }
 
