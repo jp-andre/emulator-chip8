@@ -15,5 +15,15 @@ pub fn main() !void {
     var sdl = try ui.SdlContext.init(gpa.allocator(), &emu);
     defer sdl.deinit();
 
+    while (args.next()) |arg| {
+        if (std.mem.eql(u8, "--debug", arg)) {
+            sdl.enable_debug();
+        } else if (std.mem.eql(u8, "--hires", arg)) {
+            sdl.enable_hires();
+        } else if (std.mem.eql(u8, "--nosleep", arg)) {
+            sdl.set_nosleep();
+        }
+    }
+
     try sdl.event_loop();
 }

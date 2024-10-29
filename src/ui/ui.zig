@@ -40,6 +40,8 @@ pub const SdlContext = struct {
     window: ?*sdl.SDL_Window,
     allocator: std.mem.Allocator,
     emulator: *Emulator,
+    debug: bool,
+    no_sleep: bool,
     sdl_perf_counter_freq: u64,
 
     pub fn init(allocator: std.mem.Allocator, emu: *Emulator) !SdlContext {
@@ -73,6 +75,8 @@ pub const SdlContext = struct {
             .allocator = allocator,
             .window = window,
             .emulator = emu,
+            .debug = false,
+            .no_sleep = false,
             .sdl_perf_counter_freq = sdl.SDL_GetPerformanceFrequency(),
         };
         emu.input.set_wait_key_cb(wait_key_cb, @ptrCast(&ctx));
@@ -84,14 +88,25 @@ pub const SdlContext = struct {
         sdl.SDL_Quit();
     }
 
+    pub fn enable_debug(self: *SdlContext) void {
+        self.debug = true;
+    }
+
+    pub fn enable_hires(self: *SdlContext) void {
+        self.emulator.display.set_hires();
+    }
+
+    pub fn set_nosleep(self: *SdlContext) void {
+        self.no_sleep = true;
+    }
+
     fn wait_key_cb(data: *core.input.WaitKeyDataType) !u4 {
         // FIXME: I don't like the alignemnt cast thingy, it should be part of the type
         const self: *SdlContext = @ptrCast(@alignCast(data));
-        _ = self;
 
         // This is terrible - a loop in the loop :)
         while (true) {
-            defer sdl.SDL_Delay(2);
+            defer if (!self.no_sleep) sdl.SDL_Delay(2);
 
             var event: sdl.SDL_Event = undefined;
             if (sdl.SDL_WaitEvent(&event) != 0) {
@@ -115,13 +130,12 @@ pub const SdlContext = struct {
 
         var quit = false;
         var done = false;
-        var debug = false;
 
         while (!quit) {
             // FIXME: aim to execute at 500Hz
             // This is not entirely correct, since we should account for time spent here and drawing
             // Proper sync is for another day :)
-            defer sdl.SDL_Delay(2);
+            defer if (!self.no_sleep) sdl.SDL_Delay(2);
 
             var event: sdl.SDL_Event = undefined;
             if (sdl.SDL_PollEvent(&event) != 0) {
@@ -139,7 +153,8 @@ pub const SdlContext = struct {
                     sdl.SDL_KEYUP => {
                         switch (event.key.keysym.scancode) {
                             sdl.SDL_SCANCODE_ESCAPE => quit = true,
-                            sdl.SDL_SCANCODE_H => debug = !debug,
+                            sdl.SDL_SCANCODE_H => self.debug = !self.debug,
+                            sdl.SDL_SCANCODE_G => self.no_sleep = !self.no_sleep,
                             else => if (sdl_scancode_to_chip8(event.key.keysym.scancode)) |key| {
                                 self.emulator.input.pressed_keys[key] = false;
                             },
@@ -152,7 +167,7 @@ pub const SdlContext = struct {
             if (done) continue;
 
             const instr = try self.emulator.current_instruction();
-            if (debug) {
+            if (self.debug) {
                 std.debug.print("EXEC: {any}\n", .{instr});
             }
 

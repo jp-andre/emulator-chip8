@@ -11,7 +11,9 @@ const Emulator = emulator.Emulator;
 
 pub const WIDTH = 64;
 pub const HEIGHT = 32;
-pub const DUMP_BUFSIZE = (WIDTH + 3) * (HEIGHT + 2);
+pub const HEIGHT_HIRES = 64;
+pub const WIDTH_HIRES = 128;
+pub const DUMP_BUFSIZE = (WIDTH_HIRES + 3) * (HEIGHT_HIRES + 2);
 
 pub const BuiltinSprites = [_][5]u8{
     [5]u8{ 0xF0, 0x90, 0x90, 0x90, 0xF0 },
@@ -35,23 +37,27 @@ pub const BuiltinSprites = [_][5]u8{
 pub const BUILTIN_SPRITES_LEN = 16 * 5;
 
 pub const DisplayState = struct {
-    // TODO: hires mode
-    bits: [WIDTH * HEIGHT]u1,
+    bits: [WIDTH_HIRES * HEIGHT_HIRES]u1,
     width: u8,
     height: u8,
 
     pub fn init() DisplayState {
         return DisplayState{
-            .bits = [_]u1{0} ** (WIDTH * HEIGHT),
+            .bits = [_]u1{0} ** (WIDTH_HIRES * HEIGHT_HIRES),
             .width = WIDTH,
             .height = HEIGHT,
         };
     }
 
+    pub fn set_hires(self: *DisplayState) void {
+        self.height = HEIGHT_HIRES;
+        self.width = WIDTH_HIRES;
+    }
+
     // FIXME: poor perf: should be using u8 operations
     // Returns true if the pixel is erased
     pub fn xor1(self: *DisplayState, x: usize, y: usize, v: u1) bool {
-        const offset: usize = y * WIDTH + x;
+        const offset: usize = y * self.width + x;
         const ret = self.bits[offset] & v;
         self.bits[offset] = self.bits[offset] ^ v;
         return ret == 0x1;
@@ -66,8 +72,8 @@ pub const DisplayState = struct {
             const row: u8 = sprite[y_iter];
             for (0..8) |x_iter| {
                 const xx: u3 = @intCast(x_iter);
-                const draw_x = (@as(u16, x) + @as(u16, xx)) % WIDTH;
-                const draw_y = (@as(u16, y) + @as(u16, yy)) % HEIGHT;
+                const draw_x = (@as(u16, x) + @as(u16, xx)) % self.width;
+                const draw_y = (@as(u16, y) + @as(u16, yy)) % self.height;
                 const value: u1 = @intCast(row >> (7 - xx) & 0x1);
                 ret = self.xor1(draw_x, draw_y, value) or ret;
             }
@@ -95,6 +101,13 @@ pub const DisplayState = struct {
         emu.registers.PC += 2;
     }
 
+    pub fn execute_scroll_down(self: *DisplayState, dy: u8) !void {
+        if (dy > self.height) return errors.ProgramErrors.INVALID_INSTRUCTION;
+        const offset = @as(usize, dy) * @as(usize, self.width);
+        std.mem.copyBackwards(u1, self.bits[offset..], self.bits[0 .. self.bits.len - offset]);
+        @memset(self.bits[0..offset], 0);
+    }
+
     pub fn dumps(self: *const DisplayState, out: []u8, border: bool) !void {
         if (out.len < DUMP_BUFSIZE) return error.INSUFFICIENT_BUFFER;
         @memset(out, 0);
@@ -104,7 +117,7 @@ pub const DisplayState = struct {
         if (border) {
             out[k] = '*';
             k += 1;
-            for (0..WIDTH) |_| {
+            for (0..self.width) |_| {
                 out[k] = '=';
                 k += 1;
             }
@@ -114,13 +127,13 @@ pub const DisplayState = struct {
             k += 1;
         }
 
-        for (0..HEIGHT) |y| {
+        for (0..self.height) |y| {
             if (border) {
                 out[k] = '|';
                 k += 1;
             }
-            for (0..WIDTH) |x| {
-                out[k] = if (self.bits[WIDTH * y + x] == 1) '*' else ' ';
+            for (0..self.width) |x| {
+                out[k] = if (self.bits[self.width * y + x] == 1) '*' else ' ';
                 k += 1;
             }
             if (border) {
@@ -134,7 +147,7 @@ pub const DisplayState = struct {
         if (border) {
             out[k] = '*';
             k += 1;
-            for (0..WIDTH) |_| {
+            for (0..self.width) |_| {
                 out[k] = '=';
                 k += 1;
             }

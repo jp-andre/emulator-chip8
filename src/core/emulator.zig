@@ -28,7 +28,7 @@ pub const Emulator = struct {
     pub fn init(cli_mode: bool) Emulator {
         var emu = Emulator{
             .registers = mem.Registers.init(),
-            .stack = [_]u16{0} ** 16,
+            .stack = [_]u16{0} ** mem.STACK_SIZE,
             .memory = [_]u8{0} ** mem.MEMORY_END,
             .display = display.DisplayState.init(),
             .randomizer = std.Random.DefaultPrng.init(@intCast(std.time.milliTimestamp())),
@@ -72,11 +72,7 @@ pub const Emulator = struct {
 
     pub fn execute_instruction(self: *Emulator, instr: Instruction) !void {
         try switch (instr.op) {
-            OpCode.SYS => {
-                // 0x00FF = 'hires'
-                // 0x00C2 = 'scroll-down 2' (00Cx -> scroll down by x)
-                self.registers.PC += 2;
-            },
+            OpCode.SYS => self.exec_sys(instr.addr.?),
             OpCode.CLS => self.display.execute_clear(self, instr),
             OpCode.RET => self.ret(),
             OpCode.JP => self.jump(instr.addr.?),
@@ -160,6 +156,18 @@ pub const Emulator = struct {
 
     fn skipif(self: *Emulator, cond: bool) !void {
         self.registers.PC += if (cond) 4 else 2;
+    }
+
+    fn exec_sys(self: *Emulator, addr: u12) !void {
+        const nibble: u4 = @truncate(addr & 0xF);
+
+        if (addr == 0x0FF) {
+            self.display.set_hires();
+        } else if (addr & 0xFF0 == 0x0C0) {
+            try self.display.execute_scroll_down(nibble);
+        }
+
+        self.registers.PC += 2;
     }
 
     fn exec_load(self: *Emulator, register: u4, value: u8) !void {

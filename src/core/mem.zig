@@ -27,7 +27,8 @@ pub const Registers = struct {
 };
 
 // Memory
-pub const StackBuffer = [16]u16;
+pub const STACK_SIZE = 16;
+pub const StackBuffer = [STACK_SIZE]u16;
 pub const RawMemoryBuffer = [MEMORY_END]u8;
 
 pub const MEMORY_END = 0x10000; // 4096;
