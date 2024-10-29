@@ -6,6 +6,21 @@ fun.
 
 ![image](https://github.com/user-attachments/assets/23adeeda-1a18-4f36-a86b-daede1a91a22)
 
+## Run it
+
+With zig 0.13.0 preinstalled:
+```bash
+zig build run -- assets/gradsim.hex
+```
+
+Optional arguments: `--debug`, `--hires` and `--nosleep`.
+
+Key bindings: 1,2,3,4,q,w,e,r,a,s,d,f,z,x,c,v.
+
+Extra keys:
+- H: toggle debug
+- G: toggle nosleep (fast mode)
+
 ## Resources
 
 - Zig: https://ziglang.org/
