@@ -1,4 +1,5 @@
 const std = @import("std");
+const builtin = @import("builtin");
 
 // Although this function looks imperative, note that its job is to
 // declaratively construct a build graph that will be executed by an external
@@ -24,6 +25,14 @@ pub fn build(b: *std.Build) void {
         .optimize = optimize,
     });
 
+    // const is_macos = builtin.target.os.tag == .macos;
+    // const pfx = if (is_macos) "/opt/homebrew/" else "/usr/";
+    // lib.addLibraryPath(b.path(pfx ++ "lib/libSDL2.a"));
+    // lib.addIncludePath(b.path(pfx ++ "include/SDL2"));
+    // lib.addConfigHeader(config_header: *Step.ConfigHeader)
+    // lib.addIncludePath(b.path(pfx));
+    // lib.addLibraryPath(b.path("lib/libSDL2.a"));
+
     // This declares intent for the library to be installed into the standard
     // location when the user invokes the "install" step (the default step when
     // running `zig build`).
@@ -34,6 +43,13 @@ pub fn build(b: *std.Build) void {
         .root_source_file = b.path("src/main.zig"),
         .target = target,
         .optimize = optimize,
+    });
+
+    // Add SDL
+    // exe.linkSystemLibrary("sdl2");
+    exe.linkSystemLibrary2("sdl2", std.Build.Module.LinkSystemLibraryOptions{
+        .use_pkg_config = .yes,
+        .needed = true,
     });
 
     // This declares intent for the executable to be installed into the
